@@ -1,6 +1,9 @@
 {
   "domain": "starlink_train_watch",
   "name": "Starlink Train Watch",
+  "categories": [
+    "productivity_information"
+  ],
   "codeowners": [
     "@JacosVerksted"
   ],
@@ -12,5 +15,5 @@
   "requirements": [
     "skyfield==1.55"
   ],
-  "version": "0.1.0"
+  "version": "0.1.1"
 }
