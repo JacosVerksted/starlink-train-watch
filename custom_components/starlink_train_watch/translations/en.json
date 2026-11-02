@@ -1,0 +1,40 @@
+{
+  "title": "Starlink Train Watch",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Starlink Train Watch",
+        "description": "Uses Home Assistant\u2019s home location. Experimental geometry, not guaranteed naked-eye visibility.",
+        "data": {
+          "min_elevation": "Minimum elevation (degrees)",
+          "max_sun_altitude": "Maximum Sun altitude (degrees)",
+          "max_age_days": "Maximum launch age (days)",
+          "max_span_seconds": "Maximum train peak-time spread (seconds)"
+        }
+      }
+    },
+    "error": {
+      "invalid_options": "Use elevation 0\u201385\u00b0, Sun altitude \u221218 to \u22121\u00b0, age 1\u201314 days and spread 30\u2013600 seconds."
+    },
+    "abort": {
+      "single_instance_allowed": "Already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Starlink Train Watch",
+        "description": "Uses Home Assistant\u2019s home location. Experimental geometry, not guaranteed naked-eye visibility.",
+        "data": {
+          "min_elevation": "Minimum elevation (degrees)",
+          "max_sun_altitude": "Maximum Sun altitude (degrees)",
+          "max_age_days": "Maximum launch age (days)",
+          "max_span_seconds": "Maximum train peak-time spread (seconds)"
+        }
+      }
+    },
+    "error": {
+      "invalid_options": "Use elevation 0\u201385\u00b0, Sun altitude \u221218 to \u22121\u00b0, age 1\u201314 days and spread 30\u2013600 seconds."
+    }
+  }
+}

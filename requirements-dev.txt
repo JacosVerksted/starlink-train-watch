@@ -1,0 +1,5 @@
+homeassistant==2026.10.4
+skyfield==1.55
+pytest
+pytest-asyncio
+ruff

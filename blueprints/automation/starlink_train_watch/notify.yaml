@@ -1,0 +1,78 @@
+blueprint:
+  name: Starlink Train Watch - viewing reminder
+  description: >-
+    Remind before a potential train using any HA notification action. The action
+    can use {{ starlink_message }}. Predictions are experimental; weather is
+    advisory. Uses a text helper for restart-persistent deduplication. A newly
+    discovered pass inside the lead window is still eligible.
+  domain: automation
+  input:
+    next_train:
+      name: Next potential train sensor
+      selector:
+        entity:
+          filter:
+            - domain: sensor
+              integration: starlink_train_watch
+    last_notified:
+      name: Last notified train
+      description: A dedicated Text helper with maximum length at least 100.
+      selector:
+        entity:
+          domain: input_text
+    lead_minutes:
+      name: Reminder lead time
+      default: 10
+      selector:
+        number:
+          min: 1
+          max: 60
+          unit_of_measurement: min
+          mode: slider
+    weather:
+      name: Weather entity (optional)
+      default: ""
+      selector:
+        entity:
+          domain: weather
+    notification_action:
+      name: Notification action
+      description: Use {{ starlink_message }} as the notification message.
+      selector:
+        action: {}
+mode: single
+max_exceeded: silent
+variables:
+  train_sensor: !input next_train
+  dedupe_helper: !input last_notified
+  weather_entity: !input weather
+  lead: !input lead_minutes
+triggers:
+  - trigger: time_pattern
+    minutes: /1
+conditions:
+  - condition: template
+    value_template: >-
+      {% set start = as_timestamp(states(train_sensor), none) %}
+      {{ start is not none and 0 < start - as_timestamp(now()) <= (lead | float) * 60
+         and state_attr(train_sensor, 'id') is not none
+         and states(dedupe_helper) not in ['unknown', 'unavailable']
+         and states(dedupe_helper) != state_attr(train_sensor, 'id') }}
+actions:
+  - variables:
+      train_id: "{{ state_attr(train_sensor, 'id') }}"
+      starlink_message: >-
+        Possible Starlink train at {{ as_local(as_datetime(states(train_sensor))).strftime('%H:%M') }}.
+        {{ state_attr(train_sensor, 'satellite_count') }} satellites;
+        look from {{ state_attr(train_sensor, 'start_azimuth') }}° to
+        {{ state_attr(train_sensor, 'end_azimuth') }}°;
+        maximum elevation {{ state_attr(train_sensor, 'max_elevation') }}°.
+        {% if weather_entity %}Weather: {{ states(weather_entity) }}.{% endif %}
+        Experimental prediction: brightness and clear skies are not guaranteed.
+  - choose: []
+    default: !input notification_action
+  - action: input_text.set_value
+    target:
+      entity_id: !input last_notified
+    data:
+      value: "{{ train_id }}"

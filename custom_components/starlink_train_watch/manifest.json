@@ -1,0 +1,16 @@
+{
+  "domain": "starlink_train_watch",
+  "name": "Starlink Train Watch",
+  "codeowners": [
+    "@JacosVerksted"
+  ],
+  "config_flow": true,
+  "documentation": "https://github.com/JacosVerksted/starlink-train-watch",
+  "integration_type": "service",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/JacosVerksted/starlink-train-watch/issues",
+  "requirements": [
+    "skyfield==1.55"
+  ],
+  "version": "0.1.0"
+}
