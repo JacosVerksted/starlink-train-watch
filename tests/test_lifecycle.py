@@ -39,9 +39,16 @@ async def test_full_config_entry_load_and_unload(tmp_path, monkeypatch, simulate
     if simulated:
         scenario = json.loads((root/'tests/fixtures/simulated_launch.json').read_text())
         from types import SimpleNamespace
-        from custom_components.starlink_train_watch import coordinator as coordinator_module
+        from custom_components.starlink_train_watch import (
+            binary_sensor as binary_module,
+            coordinator as coordinator_module,
+            entity as entity_module,
+        )
         calculation_time = datetime.fromisoformat(scenario['calculation_time'])
-        monkeypatch.setattr(coordinator_module, 'dt_util', SimpleNamespace(utcnow=lambda:calculation_time))
+        # Predictions and entity expiry must share the synthetic launch clock.
+        # Otherwise this test stops working once the fixture's passes have ended.
+        for module in (coordinator_module, entity_module, binary_module):
+            monkeypatch.setattr(module, 'dt_util', SimpleNamespace(utcnow=lambda:calculation_time))
         cache = {'fetched_at':calculation_time.isoformat(), 'orbits':scenario['records'],
             'launch_dates':scenario['launch_dates'], 'missing_launch_groups':[]}
     await Store(hass, 1, 'starlink_train_watch.data').async_save(cache)
