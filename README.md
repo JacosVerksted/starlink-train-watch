@@ -4,7 +4,7 @@ Experimental Home Assistant integration for **potential recent Starlink train vi
 
 ## Status and limitations
 
-**Experimental alpha. Tested with Home Assistant 2026.10.4.** Automated tests exercise real orbital calculations, synthetic launches, a complete Home Assistant config-entry lifecycle, entity transitions, and notification template eligibility/deduplication. **No real train sighting or Telegram delivery has been validated.**
+**Experimental alpha. Tested with Home Assistant 2026.10.4.** Automated tests exercise real orbital calculations, synthetic launches, a complete Home Assistant config-entry lifecycle, entity transitions, and notification template eligibility/deduplication. **No real train sighting or end-to-end notification delivery has been validated.**
 
 This is a geometric heuristic, not a brightness estimate or a validated compact-train model. Similar timing and tracks can describe a loose group that does not look like the familiar bright train. Satellite attitude, delayed catalogue updates, orbital manoeuvres, local obstructions and clouds can invalidate predictions. No candidates does not mean no satellite is visible. High-latitude summer darkness and satellite shadow can make opportunities rare. Do not use this for safety-critical decisions.
 
@@ -14,13 +14,11 @@ Requires Home Assistant **2026.10.4 or later** and an existing HACS installation
 
 [Open repository in HACS](https://my.home-assistant.io/redirect/hacs_repository/?owner=JacosVerksted&repository=starlink-train-watch&category=integration)
 
-Until accepted into the default HACS catalogue:
-1. Open HACS → menu → Custom repositories.
-2. Add `https://github.com/JacosVerksted/starlink-train-watch`, category **Integration**.
-3. Download **Starlink Train Watch**, then restart Home Assistant.
-4. Open Settings → Devices & services → Add integration → **Starlink Train Watch**.
+1. Open HACS and search for **Starlink Train Watch**.
+2. Download the integration, then restart Home Assistant.
+3. Open Settings → Devices & services → Add integration → **Starlink Train Watch**.
 
-Catalogue inclusion is subject to HACS review; a published repository is not proof of acceptance.
+Starlink Train Watch has been accepted into the [HACS catalogue](https://github.com/hacs/default/pull/13129). New listings can take time to appear while the catalogue refreshes. If it is not visible yet, use the repository link above or add `https://github.com/JacosVerksted/starlink-train-watch` under HACS → menu → Custom repositories, with category **Integration**.
 
 For manual installation copy `custom_components/starlink_train_watch` into your HA configuration's `custom_components` directory, restart HA and add the integration as above. HACS installs the integration only; import the notification blueprint separately.
 
@@ -55,7 +53,7 @@ Alternatively copy `blueprints/automation/starlink_train_watch/notify.yaml` into
 
 Default reminder lead time is ten minutes, checked every minute. The helper remembers the last successfully notified candidate across restarts. Notification failures can be retried on a later check; external delivery cannot be guaranteed exactly once.
 
-**Telegram requires a separately configured HA notification action.** No bot credentials are bundled, collected or owned by this integration. Simulations test the actual message/condition templates, not external notification delivery.
+Notifications use your existing Home Assistant notification action. Configure and test your chosen delivery method separately in Home Assistant. Simulations test the actual message/condition templates, not external notification delivery.
 
 ## Troubleshooting
 
