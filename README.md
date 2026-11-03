@@ -4,9 +4,9 @@ Experimental Home Assistant integration for **potential recent Starlink train vi
 
 ## Status and limitations
 
-**Experimental alpha. Tested with Home Assistant 2026.10.4.** Automated tests exercise real orbital calculations, synthetic launches, a complete Home Assistant config-entry lifecycle, entity transitions, and notification template eligibility/deduplication. **No real train sighting or end-to-end notification delivery has been validated.**
+**Tested with Home Assistant 2026.10.4.** Automated tests exercise real orbital calculations, synthetic launches, a complete Home Assistant config-entry lifecycle, entity transitions, and notification template eligibility/deduplication. **No real train sighting or end-to-end notification delivery has been validated.**
 
-This is a geometric heuristic, not a brightness estimate or a validated compact-train model. Similar timing and tracks can describe a loose group that does not look like the familiar bright train. Satellite attitude, delayed catalogue updates, orbital manoeuvres, local obstructions and clouds can invalidate predictions. No candidates does not mean no satellite is visible. High-latitude summer darkness and satellite shadow can make opportunities rare. Do not use this for safety-critical decisions.
+This is a geometric heuristic, not a brightness estimate or a validated compact-train model. Similar timing and tracks can describe a loose group that does not look like the familiar bright train. Satellite attitude, delayed catalogue updates, orbital manoeuvres, local obstructions and clouds can invalidate predictions. No candidates does not mean no satellite is visible. High-latitude summer darkness and satellite shadow can make opportunities rare.
 
 ## Installation with HACS
 
