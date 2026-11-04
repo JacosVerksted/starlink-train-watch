@@ -1,4 +1,14 @@
+<p align="center">
+  <img src="https://raw.githubusercontent.com/JacosVerksted/starlink-train-watch/main/custom_components/starlink_train_watch/brand/icon%402x.png" alt="Starlink Train Watch logo" width="160" height="160">
+</p>
+
 # Starlink Train Watch
+
+[![HACS](https://img.shields.io/badge/HACS-Available-41BDF5?logo=homeassistant&logoColor=white)](https://my.home-assistant.io/redirect/hacs_repository/?owner=JacosVerksted&repository=starlink-train-watch&category=integration)
+[![Home Assistant minimum version](https://img.shields.io/badge/Home_Assistant-2026.10.4%2B-18BCF2?logo=homeassistant&logoColor=white)](https://www.home-assistant.io/)
+[![Latest release](https://img.shields.io/github/v/release/JacosVerksted/starlink-train-watch)](https://github.com/JacosVerksted/starlink-train-watch/releases/latest)
+[![Validate](https://github.com/JacosVerksted/starlink-train-watch/actions/workflows/validate.yml/badge.svg?branch=main)](https://github.com/JacosVerksted/starlink-train-watch/actions/workflows/validate.yml)
+[![MIT licence](https://img.shields.io/github/license/JacosVerksted/starlink-train-watch)](https://github.com/JacosVerksted/starlink-train-watch/blob/main/LICENSE)
 
 Experimental Home Assistant integration for **potential recent Starlink train viewing opportunities**. This predicts satellites in the sky; it does not monitor Starlink internet equipment. Not affiliated with SpaceX, Starlink, CelesTrak, or Home Assistant.
 
