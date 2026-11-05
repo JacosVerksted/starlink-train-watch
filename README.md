@@ -40,15 +40,62 @@ For manual installation copy `custom_components/starlink_train_watch` into your 
 - Calculates a 48-hour horizon every 30 minutes. Orbital downloads are reused for six hours; cached-feed fallback is bounded to twelve hours.
 - Defaults: launch age up to seven days, orbital epoch within three days, elevation at least 25°, Sun at or below −6°, and sunlit satellites.
 - Requires at least three distinct satellites from the same launch, similar peak directions/elevations and a peak-time spread up to three minutes. Peak directions use spherical angular separation, including near-overhead passes.
-- Integration options adjust elevation, twilight, launch age and grouping time span. Weather is advisory; no automatic cloud-clearance guarantee is provided.
+- Integration options adjust the minimum satellite count, elevation, twilight, launch age and grouping time span. Weather is advisory; no automatic cloud-clearance guarantee is provided.
+
+### Setup and Configure examples
+
+The setup form includes examples beside each setting. After installation, change
+these under Settings → Devices & services → Starlink Train Watch → **Configure**.
+Saving options reloads the integration and recalculates predictions; existing
+installations retain the previous defaults unless you change them.
+
+The three counting/grouping rules are:
+
+1. **Minimum predicted satellites** (`min_satellites`, default **3**): choose
+   **3** to include smaller groups, **6** for at least six qualifying satellites,
+   or **10** to prefer larger groups. Counts must be whole numbers of at least 3.
+   Raising the minimum can remove all candidates; that does not mean the sky is empty.
+2. **No fixed maximum satellite count**: this is automatic, not another numeric
+   setting. The count comes from the available orbital records and qualifying
+   passes, not a hard-coded SpaceX launch capacity. For example, a launch with
+   **27** tracked satellites may produce a candidate with only **4** that meet
+   your local filters. Larger future launch groups are not truncated to 27.
+3. **Maximum train peak-time spread** (`max_span_seconds`, default **180**):
+   **60** means all member peaks must fit within one minute; **180** permits
+   three minutes; **300** permits five minutes. This is the span from the first
+   to last member peak, **not** the allowed gap between every adjacent pair.
+   Smaller values prefer tighter timing, but do not guarantee a compact visible
+   line or that every member is above the elevation threshold simultaneously.
+
+Example combinations (illustrative, not validated visibility presets):
+- **More opportunities:** minimum **3**, spread **180 seconds**.
+- **Tighter timing:** minimum **6**, spread **60 seconds**.
+- **Larger groups:** minimum **10**, spread **180 seconds**.
+
+Other filters also include examples in the form: elevation **25°** versus **40°**,
+Sun altitude **−6°** versus **−12°**, and launch age **3** versus **7 days**.
+All counts still require distinct satellites from the same recent launch,
+similar tracks, sunlit satellites, and suitable local darkness and elevation.
 
 ### Entities
 
-- **Next potential train:** timestamp with start/end, azimuth, launch group and satellite count. `unknown` means no candidate is currently predicted.
+- **Next potential train:** timestamp with start/end, azimuth, launch group, launch date, satellite count and a `satellites` list. Each member includes its name, NORAD ID, international designator, orbital epoch, predicted start/peak/end, start/peak/end azimuth, maximum elevation, sunlight status and Sun elevation at its sampled peak, range and orbital altitude at peak. Times in attributes are timezone-aware; HA handles display. `unknown` means no candidate is currently predicted.
 - **Prediction status:** readiness/cached/partial-data status and candidate counts. `unavailable` means update failure, not an empty sky.
 - **Orbital data downloaded:** timestamp of cached orbital input.
 - **Potential train visible:** predicted viewing-window binary sensor, not an optical detection.
-- **Viewing opportunities:** read-only calendar for the current prediction horizon.
+- **Viewing opportunities:** read-only calendar for the current prediction horizon. Open an event to see member names, NORAD IDs, predicted local peak times, peak directions and elevations.
+
+To inspect member details, open **Next potential train** and its attributes, or
+use Developer tools → States. For example, a template can list predicted names:
+
+```jinja2
+{{ (state_attr('sensor.starlink_train_watch_next_potential_train', 'satellites') or [])
+   | map(attribute='name') | join(', ') }}
+```
+
+These are **predicted geometric viewing windows**, not observed detections or
+promises of naked-eye visibility. Details refer only to members of that candidate,
+not every satellite in the launch. Observer coordinates are not included.
 
 ## Notifications
 

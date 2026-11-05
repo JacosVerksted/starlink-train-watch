@@ -73,6 +73,26 @@ async def test_full_config_entry_load_and_unload(tmp_path, monkeypatch, simulate
         next_id = 'sensor.starlink_train_watch_next_potential_train'
         visible_id = 'binary_sensor.starlink_train_watch_potential_train_visible'
         assert hass.states.get(next_id).attributes['satellite_count'] == 6
+        members = hass.states.get(next_id).attributes['satellites']
+        assert len(members) == 6
+        assert all(member['name'].startswith('STARLINK-') for member in members)
+        # Exercise the real options manager and update listener, not just helpers.
+        form = await hass.config_entries.options.async_init(entry.entry_id)
+        assert form['type'] == 'form'
+        options = {'min_elevation':25, 'max_sun_altitude':-6,
+                   'max_age_days':7, 'max_span_seconds':180, 'min_satellites':7}
+        saved = await hass.config_entries.options.async_configure(form['flow_id'], options)
+        assert saved['type'] == 'create_entry'
+        await hass.async_block_till_done()
+        assert entry.state.value == 'loaded'
+        assert entry.options['min_satellites'] == 7
+        assert entry.runtime_data.data['passes'] == []
+        assert hass.states.get(next_id).state == 'unknown'
+        form = await hass.config_entries.options.async_init(entry.entry_id)
+        await hass.config_entries.options.async_configure(form['flow_id'], options | {'min_satellites':3})
+        await hass.async_block_till_done()
+        assert entry.state.value == 'loaded'
+        assert hass.states.get(next_id).attributes['satellite_count'] == 6
         candidates = entry.runtime_data.data['passes']
         assert len(candidates) == 3
         first = candidates[0]

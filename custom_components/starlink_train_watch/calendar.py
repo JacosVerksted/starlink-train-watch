@@ -7,9 +7,23 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
 
 def as_event(item):
+    from homeassistant.util import dt as dt_util
+    description = (
+        f"Launch {item['launch_group']} (date: {item.get('launch_date', 'unknown')}). "
+        f"Look from {item['start_azimuth']}° to {item['end_azimuth']}°; "
+        f"max elevation {item['max_elevation']}°. "
+        "Experimental geometric prediction; brightness and weather not guaranteed."
+    )
+    for satellite in item.get('satellites', []):
+        peak = dt_util.as_local(satellite['peak']).strftime('%Y-%m-%d %H:%M:%S %Z')
+        description += (
+            f"\n{satellite['name']} (NORAD {satellite['norad_id']}): "
+            f"predicted peak {peak}, elevation {satellite['max_elevation']}°, "
+            f"azimuth {satellite['peak_azimuth']}°."
+        )
     return CalendarEvent(start=item['start'], end=item['end'], uid=item['id'],
         summary=f"Possible Starlink train ({item['satellite_count']} satellites)",
-        description=f"Launch {item['launch_group']}. Look from {item['start_azimuth']}° to {item['end_azimuth']}°; max elevation {item['max_elevation']}°. Experimental geometric prediction; brightness and weather not guaranteed.")
+        description=description)
 
 class TrainCalendar(TrainEntity, CalendarEntity):
     _attr_name = 'Viewing opportunities'

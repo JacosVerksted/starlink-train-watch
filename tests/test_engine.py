@@ -43,6 +43,19 @@ def test_compact_train_needs_three_distinct_satellites_on_similar_tracks():
     assert engine.cluster_passes('2026-230', [sample(1, 0), sample(2, 30, 180), sample(3, 60, 300)]) == []
 
 
+def test_minimum_count_filters_distinct_members_without_launch_size_cap():
+    def sample(n):
+        return {'satellite': n, 'peak': NOW + timedelta(seconds=n),
+                'start': NOW + timedelta(seconds=n-20),
+                'end': NOW + timedelta(seconds=n+20), 'azimuth': 45,
+                'max_elevation': 40, 'start_azimuth': 25, 'end_azimuth': 65}
+    passes = [sample(n) for n in range(100)]
+    assert engine.cluster_passes('2026-230', passes[:3], min_satellites=4) == []
+    result = engine.cluster_passes('2026-230', passes, min_satellites=100)
+    assert result[0]['satellite_count'] == 100
+    assert engine.cluster_passes('2026-230', passes[:3] + [sample(2)], min_satellites=4) == []
+
+
 def test_visibility_mask_rejects_daylight_shadow_low_elevation_and_stale_orbits():
     import numpy as np
     good = engine.visibility_mask(np.array([40, 40, 40, 10, 40]),

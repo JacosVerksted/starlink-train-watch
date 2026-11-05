@@ -23,7 +23,7 @@ def recent_groups(records, launch_dates, now, max_age_days=7):
     return {group: items for group, items in sorted(groups.items()) if len(items) >= 3}
 
 
-def cluster_passes(group, passes, max_span_seconds=180):
+def cluster_passes(group, passes, max_span_seconds=180, min_satellites=3):
     """Group similar tracks within a bounded peak-time span; no brightness claim."""
     remaining = sorted(passes, key=lambda p: p['peak'])
     results = []
@@ -45,7 +45,7 @@ def cluster_passes(group, passes, max_span_seconds=180):
             else:
                 rest.append(item)
         remaining = rest
-        if len(members) < 3:
+        if len(members) < min_satellites:
             continue
         start = min(m['start'] for m in members)
         last = max(members, key=lambda m: m['end'])
@@ -57,6 +57,7 @@ def cluster_passes(group, passes, max_span_seconds=180):
             'end_azimuth': round(last['end_azimuth'], 1),
             'max_elevation': round(max(m['max_elevation'] for m in members), 1),
             'peak_spread_seconds': round((members[-1]['peak'] - first['peak']).total_seconds()),
+            'satellites': [dict(m.get('details', {'norad_id': m['satellite']})) for m in members],
             'confidence': 'experimental',
             'visibility_note': 'Geometric candidate only; brightness and cloud cover not guaranteed.',
         })
@@ -74,7 +75,7 @@ def visibility_mask(altitude, sun_altitude, sunlit, epoch_age_days, *,
 
 def predict(records, launch_dates, now, latitude, longitude, elevation, ephemeris_path,
             *, hours=48, min_elevation=25, max_sun_altitude=-6,
-            max_age_days=7, max_span_seconds=180):
+            max_age_days=7, max_span_seconds=180, min_satellites=3):
     """Predict sampled visible windows, then cluster members of each launch.
 
     Ten-second sampling deliberately trades sub-second precision for bounded
@@ -88,6 +89,8 @@ def predict(records, launch_dates, now, latitude, longitude, elevation, ephemeri
         raise ValueError('Invalid observing coordinates')
     if now.tzinfo is None or not (1 <= hours <= 72):
         raise ValueError('An aware time and a 1–72 hour horizon are required')
+    if isinstance(min_satellites, bool) or not isinstance(min_satellites, int) or min_satellites < 3:
+        raise ValueError('Minimum predicted satellites must be an integer of at least 3')
     groups = recent_groups(records, launch_dates, now, max_age_days)
     end = now + timedelta(hours=hours)
     result = {'passes': [], 'calculated_at': now, 'coverage_end': end,
@@ -137,13 +140,31 @@ def predict(records, launch_dates, now, latitude, longitude, elevation, ephemeri
                             if dates[b] <= now:
                                 continue
                             peak = int(run[np.argmax(alt.degrees[run])])
-                            passes.append({'satellite': int(record['NORAD_CAT_ID']),
+                            peak_position = sat.at(samples[peak])
+                            _, _, distance = (peak_position - observer.at(samples[peak])).altaz()
+                            details = {
+                                'name': record['OBJECT_NAME'], 'norad_id': int(record['NORAD_CAT_ID']),
+                                'object_id': record['OBJECT_ID'], 'orbital_epoch': record['EPOCH'],
+                                'start': dates[a], 'end': dates[b], 'peak': dates[peak],
+                                'start_azimuth': round(float(az.degrees[a]), 1),
+                                'end_azimuth': round(float(az.degrees[b]), 1),
+                                'peak_azimuth': round(float(az.degrees[peak]), 1),
+                                'max_elevation': round(float(alt.degrees[peak]), 1),
+                                'sunlit_at_peak': bool(peak_position.is_sunlit(eph)),
+                                'sun_elevation_at_peak': round(float(sun_alt.degrees[peak]), 1),
+                                'range_km_at_peak': round(float(distance.km), 1),
+                                'altitude_km_at_peak': round(float(wgs84.subpoint(peak_position).elevation.km), 1),
+                            }
+                            passes.append({'satellite': int(record['NORAD_CAT_ID']), 'details': details,
                                 'start': dates[a], 'end': dates[b], 'peak': dates[peak],
                                 'azimuth': float(az.degrees[peak]), 'max_elevation': float(alt.degrees[peak]),
                                 'start_azimuth': float(az.degrees[a]), 'end_azimuth': float(az.degrees[b])})
                 except (ValueError, KeyError, TypeError, OverflowError):
                     result['invalid_satellites'] += 1
-            result['passes'].extend(cluster_passes(group, passes, max_span_seconds))
+            candidates = cluster_passes(group, passes, max_span_seconds, min_satellites)
+            for candidate in candidates:
+                candidate['launch_date'] = launch_dates[group]
+            result['passes'].extend(candidates)
     finally:
         eph.close()
     result['passes'].sort(key=lambda item: item['start'])

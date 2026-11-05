@@ -11,7 +11,9 @@ def schema(values):
 
 def valid(data):
     try:
-        return (0 <= data['min_elevation'] <= 85 and -18 <= data['max_sun_altitude'] <= -1
+        minimum = data.get('min_satellites', DEFAULTS['min_satellites'])
+        return (not isinstance(minimum, bool) and isinstance(minimum, int) and minimum >= 3
+                and 0 <= data['min_elevation'] <= 85 and -18 <= data['max_sun_altitude'] <= -1
                 and 1 <= data['max_age_days'] <= 14 and 30 <= data['max_span_seconds'] <= 600)
     except (KeyError, TypeError):
         return False

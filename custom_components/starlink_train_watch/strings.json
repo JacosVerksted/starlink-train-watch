@@ -4,17 +4,25 @@
     "step": {
       "user": {
         "title": "Starlink Train Watch",
-        "description": "Uses Home Assistant\u2019s home location. Experimental geometry, not guaranteed naked-eye visibility.",
+        "description": "Uses Home Assistant’s home location. Set a minimum predicted satellite count and the maximum time between the first and last satellite peaks. There is no fixed maximum satellite count: a launch containing 27 tracked satellites can produce a candidate containing only 4 qualifying satellites. Predictions do not guarantee naked-eye visibility.",
         "data": {
           "min_elevation": "Minimum elevation (degrees)",
           "max_sun_altitude": "Maximum Sun altitude (degrees)",
           "max_age_days": "Maximum launch age (days)",
-          "max_span_seconds": "Maximum train peak-time spread (seconds)"
+          "max_span_seconds": "Maximum train peak-time spread (seconds)",
+          "min_satellites": "Minimum predicted satellites"
+        },
+        "data_description": {
+          "min_satellites": "Examples: 3 includes smaller groups; 10 requires at least ten qualifying satellites from the same launch. Default: 3. There is no fixed upper limit tied to SpaceX launch sizes.",
+          "max_span_seconds": "Examples: 60 requires all member peaks within one minute; 180 allows three minutes; 300 allows five minutes. Smaller values prefer more compact groups, not necessarily simultaneous visibility. Default: 180.",
+          "min_elevation": "Example: 25 excludes low passes; 40 requires a higher pass. Default: 25 degrees. Buildings and terrain are not modelled.",
+          "max_sun_altitude": "Example: -6 allows darker twilight; -12 requires a darker sky and may produce fewer candidates. Default: -6 degrees.",
+          "max_age_days": "Example: 3 selects newer launches; 7 includes launches up to a week old. Older groups may be more dispersed. Default: 7 days."
         }
       }
     },
     "error": {
-      "invalid_options": "Use elevation 0\u201385\u00b0, Sun altitude \u221218 to \u22121\u00b0, age 1\u201314 days and spread 30\u2013600 seconds."
+      "invalid_options": "Use elevation 0–85°, Sun altitude −18 to −1°, launch age 1–14 days, spread 30–600 seconds and an integer minimum satellite count of at least 3."
     },
     "abort": {
       "single_instance_allowed": "Already configured."
@@ -24,17 +32,25 @@
     "step": {
       "init": {
         "title": "Starlink Train Watch",
-        "description": "Uses Home Assistant\u2019s home location. Experimental geometry, not guaranteed naked-eye visibility.",
+        "description": "Uses Home Assistant’s home location. Set a minimum predicted satellite count and the maximum time between the first and last satellite peaks. There is no fixed maximum satellite count: a launch containing 27 tracked satellites can produce a candidate containing only 4 qualifying satellites. Predictions do not guarantee naked-eye visibility.",
         "data": {
           "min_elevation": "Minimum elevation (degrees)",
           "max_sun_altitude": "Maximum Sun altitude (degrees)",
           "max_age_days": "Maximum launch age (days)",
-          "max_span_seconds": "Maximum train peak-time spread (seconds)"
+          "max_span_seconds": "Maximum train peak-time spread (seconds)",
+          "min_satellites": "Minimum predicted satellites"
+        },
+        "data_description": {
+          "min_satellites": "Examples: 3 includes smaller groups; 10 requires at least ten qualifying satellites from the same launch. Default: 3. There is no fixed upper limit tied to SpaceX launch sizes.",
+          "max_span_seconds": "Examples: 60 requires all member peaks within one minute; 180 allows three minutes; 300 allows five minutes. Smaller values prefer more compact groups, not necessarily simultaneous visibility. Default: 180.",
+          "min_elevation": "Example: 25 excludes low passes; 40 requires a higher pass. Default: 25 degrees. Buildings and terrain are not modelled.",
+          "max_sun_altitude": "Example: -6 allows darker twilight; -12 requires a darker sky and may produce fewer candidates. Default: -6 degrees.",
+          "max_age_days": "Example: 3 selects newer launches; 7 includes launches up to a week old. Older groups may be more dispersed. Default: 7 days."
         }
       }
     },
     "error": {
-      "invalid_options": "Use elevation 0\u201385\u00b0, Sun altitude \u221218 to \u22121\u00b0, age 1\u201314 days and spread 30\u2013600 seconds."
+      "invalid_options": "Use elevation 0–85°, Sun altitude −18 to −1°, launch age 1–14 days, spread 30–600 seconds and an integer minimum satellite count of at least 3."
     }
   }
 }
