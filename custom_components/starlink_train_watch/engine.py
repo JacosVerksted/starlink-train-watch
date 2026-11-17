@@ -1,12 +1,33 @@
 """Local, deterministic rules for experimental Starlink train predictions."""
 from __future__ import annotations
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import re
 import math
 
+ID_MATCH_SECONDS = 300
 
-def recent_groups(records, launch_dates, now, max_age_days=7):
-    """Select named payloads from launches with a verified recent launch date."""
+
+class EphemerisError(ValueError):
+    """The planetary ephemeris file could not be read (missing or corrupt)."""
+
+
+def launch_window(launch_date, max_age_days):
+    """Return (earliest, latest) UTC times a launch group is considered recent.
+
+    SATCAT only gives a launch *date*. The earliest bound is the start of that
+    UTC day (the launch cannot be earlier); the latest bound counts the age from
+    the *end* of that day, so a late-evening launch keeps its full window.
+    """
+    start = datetime.fromisoformat(launch_date).replace(tzinfo=timezone.utc)
+    return start, start + timedelta(days=1 + max_age_days)
+
+
+def recent_groups(records, launch_dates, now, max_age_days=7, min_satellites=3):
+    """Select named payloads from launches with a verified recent launch date.
+
+    Groups with fewer than ``min_satellites`` members can never form a train and
+    are skipped before the expensive orbit calculation.
+    """
     groups = {}
     for record in records:
         oid = record.get('OBJECT_ID', '')
@@ -14,17 +35,53 @@ def recent_groups(records, launch_dates, now, max_age_days=7):
             continue
         group = oid[:8]
         try:
-            launched = datetime.fromisoformat(launch_dates[group]).replace(tzinfo=timezone.utc)
+            earliest, latest = launch_window(launch_dates[group], max_age_days)
         except (KeyError, ValueError, TypeError):
             continue
-        age = (now - launched).total_seconds() / 86400
-        if 0 <= age <= max_age_days:
+        if earliest <= now <= latest:
             groups.setdefault(group, []).append(record)
-    return {group: items for group, items in sorted(groups.items()) if len(items) >= 3}
+    return {group: items for group, items in sorted(groups.items()) if len(items) >= max(3, min_satellites)}
 
 
-def cluster_passes(group, passes, max_span_seconds=180, min_satellites=3):
-    """Group similar tracks within a bounded peak-time span; no brightness claim."""
+def _assign_ids(group, results, previous):
+    """Give each train an ID that is unique in this result and stable across recalculations.
+
+    A train keeps the ID of a previous train of the same launch group whose peak
+    lies within ``ID_MATCH_SECONDS``. New trains get ``<group>_<peak epoch>``,
+    with a counter suffix if two of them would collide.
+    """
+    available = [p for p in (previous or []) if p.get('launch_group') == group and p.get('id')]
+    used = set()
+    for result in sorted(results, key=lambda r: r['peak']):
+        best = min((p for p in available if p['id'] not in used
+                    and abs((p['peak'] - result['peak']).total_seconds()) <= ID_MATCH_SECONDS),
+                   key=lambda p: abs((p['peak'] - result['peak']).total_seconds()), default=None)
+        if best:
+            result['id'] = best['id']
+        else:
+            base = f'{group}_{int(result["peak"].timestamp())}'
+            candidate, counter = base, 1
+            while candidate in used or any(p.get('id') == candidate for p in available):
+                counter += 1
+                candidate = f'{base}-{counter}'
+            result['id'] = candidate
+        used.add(result['id'])
+
+
+def cluster_passes(group, passes, max_span_seconds=180, min_satellites=3, previous=None):
+    """Group similar tracks within a bounded peak-time span; no brightness claim.
+
+    Field meaning of each returned train: ``start``/``end`` are the earliest
+    start and latest end of any member, and ``start_azimuth``/``end_azimuth``
+    belong to those same members. ``peak`` is the peak of the member that peaks
+    first and ``max_elevation`` is the highest elevation of any member.
+
+    Known limits: members are compared with the first (anchor) pass only, so two
+    members can differ by up to ~30 degrees; clustering is greedy, so an outlier
+    anchor can break up a real train; a satellite seen twice inside one window
+    is kept for a later cluster instead of being counted twice. ``previous`` is
+    the earlier list of trains, used to keep IDs stable.
+    """
     remaining = sorted(passes, key=lambda p: p['peak'])
     results = []
     while remaining:
@@ -42,18 +99,19 @@ def cluster_passes(group, passes, max_span_seconds=180, min_satellites=3):
             if delta <= max_span_seconds and angle <= 15 and abs(item['max_elevation'] - first['max_elevation']) <= 15:
                 if item['satellite'] not in {m['satellite'] for m in members}:
                     members.append(item)
+                else:
+                    rest.append(item)
             else:
                 rest.append(item)
         remaining = rest
         if len(members) < min_satellites:
             continue
-        start = min(m['start'] for m in members)
+        earliest = min(members, key=lambda m: m['start'])
         last = max(members, key=lambda m: m['end'])
         results.append({
-            'id': f'{group}_{int(first["peak"].timestamp()) // 600}',
-            'launch_group': group, 'start': start, 'end': last['end'],
+            'launch_group': group, 'start': earliest['start'], 'end': last['end'],
             'peak': first['peak'], 'satellite_count': len(members),
-            'start_azimuth': round(first['start_azimuth'], 1),
+            'start_azimuth': round(earliest['start_azimuth'], 1),
             'end_azimuth': round(last['end_azimuth'], 1),
             'max_elevation': round(max(m['max_elevation'] for m in members), 1),
             'peak_spread_seconds': round((members[-1]['peak'] - first['peak']).total_seconds()),
@@ -61,6 +119,7 @@ def cluster_passes(group, passes, max_span_seconds=180, min_satellites=3):
             'confidence': 'experimental',
             'visibility_note': 'Geometric candidate only; brightness and cloud cover not guaranteed.',
         })
+    _assign_ids(group, results, previous)
     return results
 
 
@@ -75,14 +134,13 @@ def visibility_mask(altitude, sun_altitude, sunlit, epoch_age_days, *,
 
 def predict(records, launch_dates, now, latitude, longitude, elevation, ephemeris_path,
             *, hours=48, min_elevation=25, max_sun_altitude=-6,
-            max_age_days=7, max_span_seconds=180, min_satellites=3):
+            max_age_days=7, max_span_seconds=180, min_satellites=3, previous=None):
     """Predict sampled visible windows, then cluster members of each launch.
 
     Ten-second sampling deliberately trades sub-second precision for bounded
     CPU use. A candidate is a geometric heuristic, never a brightness estimate.
     Call on an executor thread, never Home Assistant's event loop.
     """
-    from datetime import timedelta
     import numpy as np
     from skyfield.api import EarthSatellite, load, load_file, wgs84
     if not (-90 <= latitude <= 90 and -180 <= longitude <= 180):
@@ -91,7 +149,7 @@ def predict(records, launch_dates, now, latitude, longitude, elevation, ephemeri
         raise ValueError('An aware time and a 1–72 hour horizon are required')
     if isinstance(min_satellites, bool) or not isinstance(min_satellites, int) or min_satellites < 3:
         raise ValueError('Minimum predicted satellites must be an integer of at least 3')
-    groups = recent_groups(records, launch_dates, now, max_age_days)
+    groups = recent_groups(records, launch_dates, now, max_age_days, min_satellites)
     end = now + timedelta(hours=hours)
     result = {'passes': [], 'calculated_at': now, 'coverage_end': end,
               'groups_considered': len(groups), 'satellites_considered': 0,
@@ -100,14 +158,17 @@ def predict(records, launch_dates, now, latitude, longitude, elevation, ephemeri
         return result
     ts = load.timescale(builtin=True)
     observer = wgs84.latlon(latitude, longitude, elevation_m=elevation)
-    eph = load_file(str(ephemeris_path))
+    try:
+        eph = load_file(str(ephemeris_path))
+    except Exception as error:  # skyfield/jplephem raise assorted types on bad files
+        raise EphemerisError(f'Cannot read ephemeris ({type(error).__name__})') from error
     try:
         station = eph['earth'] + observer
         t0 = ts.from_datetime(now - timedelta(minutes=15))
         t1 = ts.from_datetime(end)
         for group, members in groups.items():
             passes = []
-            launch_limit = datetime.fromisoformat(launch_dates[group]).replace(tzinfo=timezone.utc) + timedelta(days=max_age_days)
+            launch_limit = launch_window(launch_dates[group], max_age_days)[1]
             for record in members:
                 try:
                     sat = EarthSatellite.from_omm(ts, record)
@@ -161,7 +222,7 @@ def predict(records, launch_dates, now, latitude, longitude, elevation, ephemeri
                                 'start_azimuth': float(az.degrees[a]), 'end_azimuth': float(az.degrees[b])})
                 except (ValueError, KeyError, TypeError, OverflowError):
                     result['invalid_satellites'] += 1
-            candidates = cluster_passes(group, passes, max_span_seconds, min_satellites)
+            candidates = cluster_passes(group, passes, max_span_seconds, min_satellites, previous)
             for candidate in candidates:
                 candidate['launch_date'] = launch_dates[group]
             result['passes'].extend(candidates)

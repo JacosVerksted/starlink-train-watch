@@ -16,6 +16,11 @@ async def test_full_config_entry_load_and_unload(tmp_path, monkeypatch, simulate
     eph_dir = tmp_path/'.storage/starlink_train_watch'
     eph_dir.mkdir(parents=True)
     (eph_dir/'de421.bsp').symlink_to(root/'cache/de421.bsp')
+    # The bare test harness has no zeroconf component, so HA's own aiohttp resolver would
+    # create a second Zeroconf instance and log a misleading warning blaming this integration.
+    from unittest.mock import MagicMock
+    from homeassistant.components import zeroconf
+    monkeypatch.setattr(zeroconf, 'async_get_async_zeroconf', lambda hass: MagicMock())
     hass = HomeAssistant(str(tmp_path))
     from homeassistant.helpers import frame
     frame.async_setup(hass)
@@ -109,7 +114,7 @@ async def test_full_config_entry_load_and_unload(tmp_path, monkeypatch, simulate
         assert template.async_render(variables, parse_result=True) is True
         message = Template(blueprint['actions'][0]['variables']['starlink_message'], hass).async_render(variables)
         assert '6 satellites' in message and 'Experimental prediction' in message
-        hass.states.async_set(helper, first['id'])
+        hass.states.async_set(helper, f"{first['launch_group']}|{first['start'].isoformat()}")
         assert template.async_render(variables, parse_result=True) is False
         variables['now'] = lambda: first['start']-timedelta(minutes=11)
         hass.states.async_set(helper, '')

@@ -1,5 +1,9 @@
-"""Experimental Starlink train viewing opportunities."""
-from .const import PLATFORMS
+"""Starlink train viewing opportunities."""
+import shutil
+
+from homeassistant.helpers.storage import Store
+
+from .const import DOMAIN, PLATFORMS
 from .coordinator import TrainCoordinator
 
 async def async_setup_entry(hass, entry):
@@ -15,3 +19,10 @@ async def _reload(hass, entry):
 
 async def async_unload_entry(hass, entry):
     return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+
+
+async def async_remove_entry(hass, entry):
+    """Delete the orbit cache and the downloaded ephemeris when the integration is removed."""
+    await Store(hass, 1, f'{DOMAIN}.data').async_remove()
+    directory = hass.config.path('.storage', DOMAIN)
+    await hass.async_add_executor_job(lambda: shutil.rmtree(directory, ignore_errors=True))

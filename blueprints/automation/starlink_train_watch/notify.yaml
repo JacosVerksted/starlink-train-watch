@@ -3,8 +3,13 @@ blueprint:
   description: >-
     Remind before a potential train using any HA notification action. The action
     can use {{ starlink_message }}. Predictions are experimental; weather is
-    advisory. Uses a text helper for restart-persistent deduplication. A newly
-    discovered pass inside the lead window is still eligible.
+    advisory. Uses a text helper for restart-persistent deduplication: it stores
+    the launch group and start time of the last announced train, and a train of
+    the same launch group starting within 20 minutes of that time counts as
+    already announced, so recalculated predictions do not cause a second
+    reminder. A newly discovered pass inside the lead window is still eligible.
+    Only the next train is considered: a second train inside the lead window is
+    announced once the first one has started.
   domain: automation
   input:
     next_train:
@@ -19,7 +24,8 @@ blueprint:
       description: A dedicated Text helper with maximum length at least 100.
       selector:
         entity:
-          domain: input_text
+          filter:
+            - domain: input_text
     lead_minutes:
       name: Reminder lead time
       default: 10
@@ -34,7 +40,8 @@ blueprint:
       default: ""
       selector:
         entity:
-          domain: weather
+          filter:
+            - domain: weather
     notification_action:
       name: Notification action
       description: Use {{ starlink_message }} as the notification message.
@@ -54,13 +61,17 @@ conditions:
   - condition: template
     value_template: >-
       {% set start = as_timestamp(states(train_sensor), none) %}
+      {% set group = state_attr(train_sensor, 'launch_group') %}
+      {% set last = states(dedupe_helper).split('|') %}
+      {% set announced = last | length == 2 and last[0] == group and start is not none
+                         and ((as_timestamp(last[1], 0) - start) | abs) < 1200 %}
       {{ start is not none and 0 < start - as_timestamp(now()) <= (lead | float) * 60
-         and state_attr(train_sensor, 'id') is not none
+         and group is not none
          and states(dedupe_helper) not in ['unknown', 'unavailable']
-         and states(dedupe_helper) != state_attr(train_sensor, 'id') }}
+         and not announced }}
 actions:
   - variables:
-      train_id: "{{ state_attr(train_sensor, 'id') }}"
+      train_key: "{{ state_attr(train_sensor, 'launch_group') }}|{{ states(train_sensor) }}"
       starlink_message: >-
         Possible Starlink train at {{ as_local(as_datetime(states(train_sensor))).strftime('%H:%M') }}.
         {{ state_attr(train_sensor, 'satellite_count') }} satellites;
@@ -75,4 +86,4 @@ actions:
     target:
       entity_id: !input last_notified
     data:
-      value: "{{ train_id }}"
+      value: "{{ train_key }}"
