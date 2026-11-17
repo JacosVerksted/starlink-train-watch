@@ -1,5 +1,6 @@
 """Read-only calendar of experimental viewing opportunities."""
 from homeassistant.components.calendar import CalendarEntity, CalendarEvent
+from homeassistant.util import dt as dt_util
 from .entity import TrainEntity
 
 async def async_setup_entry(hass, entry, async_add_entities):
@@ -7,7 +8,6 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
 
 def as_event(item):
-    from homeassistant.util import dt as dt_util
     description = (
         f"Launch {item['launch_group']} (date: {item.get('launch_date', 'unknown')}). "
         f"Look from {item['start_azimuth']}° to {item['end_azimuth']}°; "
@@ -27,6 +27,7 @@ def as_event(item):
 
 class TrainCalendar(TrainEntity, CalendarEntity):
     _attr_name = 'Viewing opportunities'
+    _time_bound = True
     def __init__(self, coordinator, entry):
         super().__init__(coordinator, entry, 'calendar')
     @property

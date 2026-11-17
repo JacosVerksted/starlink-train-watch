@@ -10,7 +10,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from homeassistant.util import dt as dt_util
 from .client import OrbitClient, EPHEMERIS_URL
 from .const import DOMAIN, DEFAULTS
-from .engine import predict
+from .engine import EphemerisError, predict
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -23,16 +23,24 @@ class TrainCoordinator(DataUpdateCoordinator):
         self.client = None
         self.ephemeris = Path(hass.config.path('.storage', DOMAIN, 'de421.bsp'))
 
+    def _ephemeris_ok(self):
+        """True when the stored ephemeris exists and looks like a real SPK kernel."""
+        try:
+            if self.ephemeris.stat().st_size < 1_000_000:
+                return False
+            with self.ephemeris.open('rb') as handle:
+                return handle.read(7) == b'DAF/SPK'
+        except OSError:
+            return False
+
     async def _ephemeris(self):
-        if await self.hass.async_add_executor_job(self.ephemeris.is_file):
+        if await self.hass.async_add_executor_job(self._ephemeris_ok):
             return
         session = async_get_clientsession(self.hass)
         async with session.get(EPHEMERIS_URL, timeout=aiohttp.ClientTimeout(total=120)) as response:
             response.raise_for_status()
-            data = await response.content.read(20_000_001)
-            # StreamReader.read(n) may return fewer bytes than requested.
-            chunks = [data]
-            total = len(data)
+            chunks = []
+            total = 0
             async for chunk in response.content.iter_chunked(65536):
                 total += len(chunk)
                 if total > 20_000_000:
@@ -54,13 +62,22 @@ class TrainCoordinator(DataUpdateCoordinator):
             if self.client is None:
                 self.client = OrbitClient(async_get_clientsession(self.hass), await self.store.async_load())
             cache = await self.client.snapshot(now)
-            await self.store.async_save(cache)
+            if self.client.dirty:
+                # Only rewrite the (multi-MB) cache when something actually changed.
+                await self.store.async_save(cache)
+                self.client.dirty = False
             await self._ephemeris()
             options = DEFAULTS | self.entry.data | self.entry.options
-            result = await self.hass.async_add_executor_job(partial(predict,
-                cache['orbits'], cache['launch_dates'], now,
-                self.hass.config.latitude, self.hass.config.longitude, self.hass.config.elevation,
-                self.ephemeris, **options))
+            previous = self.data['passes'] if self.data else None
+            try:
+                result = await self.hass.async_add_executor_job(partial(predict,
+                    cache['orbits'], cache['launch_dates'], now,
+                    self.hass.config.latitude, self.hass.config.longitude, self.hass.config.elevation,
+                    self.ephemeris, previous=previous, **options))
+            except EphemerisError:
+                # Corrupt kernel: delete it so the next update downloads a fresh copy.
+                await self.hass.async_add_executor_job(partial(self.ephemeris.unlink, missing_ok=True))
+                raise
             incomplete = bool(cache.get('missing_launch_groups'))
             if self.client.last_error:
                 status = 'cached_feed'

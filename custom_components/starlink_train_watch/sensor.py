@@ -8,6 +8,9 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
 class TrainNextPass(TrainEntity, SensorEntity):
     _attr_name = 'Next potential train'
+    _time_bound = True
+    # The per-satellite list is large; keep it out of the recorder database.
+    _unrecorded_attributes = frozenset({'satellites'})
     _attr_device_class = SensorDeviceClass.TIMESTAMP
     def __init__(self, coordinator, entry):
         super().__init__(coordinator, entry, 'next_train')

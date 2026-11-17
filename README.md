@@ -37,7 +37,7 @@ For manual installation copy `custom_components/starlink_train_watch` into your 
 - Uses HA's configured home latitude, longitude and elevation, with HA's timezone for local display. One home observer is supported.
 - Downloads public CelesTrak last-30-days OMM orbital data and SATCAT launch dates over HTTPS. **Home coordinates stay local** and are not sent to CelesTrak, JPL, or tracking websites.
 - Downloads JPL DE421 (~17 MB) once for local sunlight and twilight calculations. Internet access is needed for initial setup and data refreshes.
-- Calculates a 48-hour horizon every 30 minutes. Orbital downloads are reused for six hours; cached-feed fallback is bounded to twelve hours.
+- Calculates a 48-hour horizon every 30 minutes. Orbital downloads are reused for six hours; cached-feed fallback is bounded to twelve hours. Launch dates that could not be looked up are retried about every 45 minutes without re-downloading the orbital feed.
 - Defaults: launch age up to seven days, orbital epoch within three days, elevation at least 25°, Sun at or below −6°, and sunlit satellites.
 - Requires at least three distinct satellites from the same launch, similar peak directions/elevations and a peak-time spread up to three minutes. Peak directions use spherical angular separation, including near-overhead passes.
 - Integration options adjust the minimum satellite count, elevation, twilight, launch age and grouping time span. Weather is advisory; no automatic cloud-clearance guarantee is provided.
@@ -108,7 +108,7 @@ Alternatively copy `blueprints/automation/starlink_train_watch/notify.yaml` into
 3. Optionally select an existing weather entity.
 4. Select your notification action and use `{{ starlink_message }}` as its message.
 
-Default reminder lead time is ten minutes, checked every minute. The helper remembers the last successfully notified candidate across restarts. Notification failures can be retried on a later check; external delivery cannot be guaranteed exactly once.
+Default reminder lead time is ten minutes, checked every minute. The helper remembers the launch group and start time of the last notified train across restarts; a train of the same launch group starting within 20 minutes of that time is treated as already announced, so recalculated predictions do not trigger a second reminder. Only the *next* train is considered, so a second train inside the lead window is announced once the first has started. Notification failures can be retried on a later check; external delivery cannot be guaranteed exactly once.
 
 Notifications use your existing Home Assistant notification action. Configure and test your chosen delivery method separately in Home Assistant. Simulations test the actual message/condition templates, not external notification delivery.
 
@@ -139,7 +139,7 @@ Fixtures use public orbital records and a clearly synthetic group at a rounded t
 
 ## Uninstall
 
-Remove the integration through Settings → Devices & services, uninstall it in HACS, then restart HA. Remove the optional reminder automation, blueprint and dedicated helper if no longer needed. No unrelated HA configuration or registry restore is required.
+Remove the integration through Settings → Devices & services (this also deletes its cached orbit data and the downloaded ephemeris from `.storage`), uninstall it in HACS, then restart HA. Remove the optional reminder automation, blueprint and dedicated helper if no longer needed. No unrelated HA configuration or registry restore is required.
 
 ## Licence and data attribution
 

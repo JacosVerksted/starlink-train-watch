@@ -75,7 +75,7 @@ def test_entities_distinguish_no_pass_from_feed_failure():
     from homeassistant.util import dt as dt_util
     from homeassistant.core import is_callback
     from custom_components.starlink_train_watch.entity import TrainEntity
-    assert is_callback(TrainEntity._tick), 'Timers must write state on the HA event loop'
+    assert is_callback(TrainEntity._boundary), 'Timers must write state on the HA event loop'
     sensor = importlib.import_module('custom_components.starlink_train_watch.sensor')
     binary = importlib.import_module('custom_components.starlink_train_watch.binary_sensor')
     calendar = importlib.import_module('custom_components.starlink_train_watch.calendar')
